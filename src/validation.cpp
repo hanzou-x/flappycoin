@@ -1038,16 +1038,350 @@ bool ReadBlockFromDisk(CBlock& block, const CBlockIndex* pindex, const Consensus
     return true;
 }
 
-CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams)
-{
-    int halvings = nHeight / consensusParams.nSubsidyHalvingInterval;
-    // Force block reward to zero when right shift is undefined.
-    if (halvings >= 64)
-        return 0;
+#include <boost/random/mersenne_twister.hpp>
+#include <boost/random/uniform_int.hpp>
 
-    CAmount nSubsidy = 50 * COIN;
-    // Subsidy is cut in half every 210,000 blocks which will occur approximately every 4 years.
-    nSubsidy >>= halvings;
+static int generateMTRandom(unsigned int s, int range)
+{
+    boost::mt19937 gen(s);
+    boost::uniform_int<> dist(1, range);
+    return dist(gen);
+}
+
+static const long hextable[] =
+{
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,         // 10-19
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,         // 30-39
+    -1, -1, -1, -1, -1, -1, -1, -1,  0,  1,
+     2,  3,  4,  5,  6,  7,  8,  9, -1, -1,         // 50-59
+    -1, -1, -1, -1, -1, 10, 11, 12, 13, 14,
+    15, -1, -1, -1, -1, -1, -1, -1, -1, -1,         // 70-79
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, 10, 11, 12,         // 90-99
+    13, 14, 15, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,         // 110-109
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,         // 130-139
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,         // 150-159
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,         // 170-179
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,         // 190-199
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,         // 210-219
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,         // 230-239
+    -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    -1, -1, -1, -1, -1, -1
+};
+
+long hex2long(const char* hexString)
+{
+    long ret = 0;
+
+    while (*hexString && ret >= 0)
+    {
+        ret = (ret << 4) | hextable[(uint8_t)*hexString++];
+    }
+
+    return ret;
+}
+
+CAmount GetBlockSubsidy(int nHeight, const Consensus::Params& consensusParams, uint256 prevHash)
+{
+    CAmount nSubsidy = 1000 * COIN;
+
+    std::string cseed_str = prevHash.ToString().substr(7,7);
+    const char* cseed = cseed_str.c_str();
+    long seed = hex2long(cseed);
+    int rand = generateMTRandom(seed, 999999);
+    int rand1 = 0;
+    int rand2 = 0;
+
+    if(nHeight < 110000)
+    {
+        nSubsidy = (1 + rand) * COIN;
+    }
+    else if(nHeight < 140000)
+    {
+        cseed_str = prevHash.ToString().substr(7,7);
+        cseed = cseed_str.c_str();
+        seed = hex2long(cseed);
+        rand1 = generateMTRandom(seed, 99999);
+        nSubsidy = (1 + rand1) * COIN;
+    }
+    else if(nHeight < 140500)
+    {
+        cseed_str = prevHash.ToString().substr(7,7);
+        cseed = cseed_str.c_str();
+        seed = hex2long(cseed);
+        rand2 = generateMTRandom(seed, 999999);
+        nSubsidy = (1 + rand2) * COIN;
+    }
+    else if(nHeight < 200000)
+    {
+        nSubsidy = 100000 * COIN;
+    }
+    else if(nHeight < 300000)
+    {
+        nSubsidy = 50000 * COIN;
+    }
+    else if(nHeight < 700000)
+    {
+        nSubsidy = 25000 * COIN;
+    }
+    else if(nHeight < 725000)
+    {
+        nSubsidy = 12500 * COIN;
+    }
+    else if(nHeight < 750000)
+    {
+        nSubsidy = 6250 * COIN;
+    }
+    else if(nHeight < 779333)
+    {
+        nSubsidy = 25000 * COIN;
+    }
+    else if(nHeight < 789555)
+    {
+        nSubsidy = 12500 * COIN;
+    }
+    else if(nHeight < 822222)
+    {
+        nSubsidy = 50000 * COIN;
+    }
+    else if(nHeight < 833333)
+    {
+        nSubsidy = 12500 * COIN;
+    }
+    else if(nHeight < 888888)
+    {
+        nSubsidy = 100000 * COIN;
+    }
+    else if(nHeight < 900001)
+    {
+        nSubsidy = 12500 * COIN;
+    }
+    else if(nHeight < 903000)
+    {
+        nSubsidy = 100 * COIN;
+    }
+    else if(nHeight < 913080)
+    {
+        nSubsidy = 34333 * COIN;
+    }
+    else if(nHeight < 914420)
+    {
+        nSubsidy = 1000 * COIN;
+    }
+    else if(nHeight < 915860)
+    {
+        nSubsidy = 420000 * COIN;
+    }
+    else if(nHeight < 936020)
+    {
+        nSubsidy = 35000 * COIN;
+    }
+    else if(nHeight < 936420)
+    {
+        nSubsidy = 1000 * COIN;
+    }
+    else if(nHeight < 937860)
+    {
+        nSubsidy = 420000 * COIN;
+    }
+    else if(nHeight < 947940)
+    {
+        nSubsidy = 35000 * COIN;
+    }
+    else if(nHeight < 948420)
+    {
+        nSubsidy = 1000 * COIN;
+    }
+    else if(nHeight < 949860)
+    {
+        nSubsidy = 420000 * COIN;
+    }
+    else if(nHeight < 959940)
+    {
+        nSubsidy = 35000 * COIN;
+    }
+    else if(nHeight < 960420)
+    {
+        nSubsidy = 1000 * COIN;
+    }
+    else if(nHeight < 961860)
+    {
+        nSubsidy = 420000 * COIN;
+    }
+    else if(nHeight < 981990)
+    {
+        nSubsidy =  35000 * COIN;
+    }
+    else if(nHeight < 1000000)
+    {
+        nSubsidy =  1000 * COIN;
+    }
+    else if(nHeight < 1010080)
+    {
+        nSubsidy =  992063 * COIN;
+    }
+    else if(nHeight < 1011420)
+    {
+        nSubsidy =  1000 * COIN;
+    }
+    else if(nHeight < 1012860)
+    {
+        nSubsidy =  420000 * COIN;
+    }
+    else if(nHeight < 1022940)
+    {
+        nSubsidy =  35000 * COIN;
+    }
+    else if(nHeight < 1023420)
+    {
+        nSubsidy =  1000 * COIN;
+    }
+    else if(nHeight < 1024860)
+    {
+        nSubsidy =  420000 * COIN;
+    }
+    else if(nHeight < 1034940)
+    {
+        nSubsidy =  35000 * COIN;
+    }
+    else if(nHeight < 1035420)
+    {
+        nSubsidy =  1000 * COIN;
+    }
+    else if(nHeight < 1036860)
+    {
+        nSubsidy =  420000 * COIN;
+    }
+    else if(nHeight < 1036860)
+    {
+        // never hit this, fortunately
+        nSubsidy = 10000000 * COIN;
+    }
+    else if(nHeight < 1071555)
+    {
+        nSubsidy = 5000 * COIN;
+    }
+    else if(nHeight < 1073333)
+    {
+        nSubsidy = 10000000 * COIN;
+    }
+    else if(nHeight < 1080000)
+    {
+        nSubsidy = 5000 * COIN;
+    }
+    else if(nHeight < 1081000)
+    {
+        nSubsidy = 100000 * COIN;
+    }
+    else if(nHeight < 1182000)
+    {
+        nSubsidy = 5000 * COIN;
+    }
+    else if(nHeight < 1183000)
+    {
+        nSubsidy = 100000 * COIN;
+    }
+    else if(nHeight < 1190000)
+    {
+        nSubsidy = 5000 * COIN;
+    }
+    else if(nHeight < 1221000)
+    {
+        nSubsidy = 100000 * COIN;
+    }
+    else if(nHeight < 1222000)
+    {
+        nSubsidy = 5000 * COIN;
+    }
+    else if(nHeight < 1223000)
+    {
+        nSubsidy = 100000 * COIN;
+    }
+    else if(nHeight < 1224000)
+    {
+        nSubsidy = 5000 * COIN;
+    }
+    else if(nHeight < 1225000)
+    {
+        nSubsidy = 100000 * COIN;
+    }
+    else if(nHeight < 1234000)
+    {
+        nSubsidy = 5000 * COIN;
+    }
+    else if(nHeight < 1255000)
+    {
+        nSubsidy = 100000 * COIN;
+    }
+    else if(nHeight < 1259000)
+    {
+        nSubsidy = 5000 * COIN;
+    }
+    else if(nHeight < 1279000)
+    {
+        nSubsidy = 100000 * COIN;
+    }
+    else if(nHeight < 1300000)
+    {
+        nSubsidy = 5000 * COIN;
+    }
+    else if(nHeight < 1400000)
+    {
+        nSubsidy = 100000 * COIN;
+    }
+    else if(nHeight < 1550000)
+    {
+        nSubsidy = 200000 * COIN;
+    }
+    else if(nHeight < 1675000)
+    {
+        nSubsidy = 300000 * COIN;
+    }
+    else if(nHeight < 1785000)
+    {
+        nSubsidy = 400000 * COIN;
+    }
+    else if(nHeight < 1800000)
+    {
+        nSubsidy = 500000 * COIN;
+    }
+    else if(nHeight < 1900000)
+    {
+        nSubsidy = 600000 * COIN;
+    }
+    else if(nHeight < 2000000)
+    {
+        nSubsidy =  700000 * COIN;
+    }
+    else if(nHeight < 2100000)
+    {
+        nSubsidy =  800000 * COIN;
+    }
+    else if(nHeight < 2200000)
+    {
+        nSubsidy =  900000 * COIN;
+    }
+    else if(nHeight < 2300000)
+    {
+        nSubsidy =  100000 * COIN;
+    }
+    else if(nHeight < 2400000)
+    {
+        nSubsidy =  25000 * COIN;
+    }
+    else if(nHeight < 3000000)
+    {
+        nSubsidy =  500 * COIN;
+    }
     return nSubsidy;
 }
 
@@ -1826,7 +2160,7 @@ static bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockInd
     int64_t nTime3 = GetTimeMicros(); nTimeConnect += nTime3 - nTime2;
     LogPrint(BCLog::BENCH, "      - Connect %u transactions: %.2fms (%.3fms/tx, %.3fms/txin) [%.2fs]\n", (unsigned)block.vtx.size(), 0.001 * (nTime3 - nTime2), 0.001 * (nTime3 - nTime2) / block.vtx.size(), nInputs <= 1 ? 0 : 0.001 * (nTime3 - nTime2) / (nInputs-1), nTimeConnect * 0.000001);
 
-    CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus());
+    CAmount blockReward = nFees + GetBlockSubsidy(pindex->nHeight, chainparams.GetConsensus(), pindex->pprev->GetBlockHash());
     if (block.vtx[0]->GetValueOut() > blockReward)
         return state.DoS(100,
                          error("ConnectBlock(): coinbase pays too much (actual=%d vs limit=%d)",

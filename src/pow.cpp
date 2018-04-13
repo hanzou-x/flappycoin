@@ -13,6 +13,25 @@
 
 unsigned int GetNextWorkRequired(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
 {
+    int DiffMode = 1;
+    if (params.fPowAllowMinDifficultyBlocks) {
+        // testnet
+        if (pindexLast->nHeight+1 >= 50) { DiffMode = 2; }
+    } else {
+        if (pindexLast->nHeight+1 >= 6000) { DiffMode = 2; }
+    }
+
+    switch(DiffMode) {
+        case 1:
+            return GetNextWorkRequired_V1(pindexLast, pblock, params);
+        case 2:
+        default:
+            return GetNextWorkRequired_V2(pindexLast, pblock, params);
+    }
+}
+
+unsigned int GetNextWorkRequired_V1(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
+{
     assert(pindexLast != nullptr);
     unsigned int nProofOfWorkLimit = UintToArith256(params.powLimit).GetCompact();
 
@@ -62,10 +81,22 @@ unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nF
 
     // Limit adjustment step
     int64_t nActualTimespan = pindexLast->GetBlockTime() - nFirstBlockTime;
-    if (nActualTimespan < params.nPowTargetTimespan/4)
-        nActualTimespan = params.nPowTargetTimespan/4;
-    if (nActualTimespan > params.nPowTargetTimespan*4)
-        nActualTimespan = params.nPowTargetTimespan*4;
+    if(pindexLast->nHeight+1 > 10000) {
+         if (nActualTimespan < params.nPowTargetTimespan/4)
+             nActualTimespan = params.nPowTargetTimespan/4;
+         if (nActualTimespan > params.nPowTargetTimespan*4)
+             nActualTimespan = params.nPowTargetTimespan*4;
+    } else if(pindexLast->nHeight+1 > 5000) {
+         if (nActualTimespan < params.nPowTargetTimespan/8)
+             nActualTimespan = params.nPowTargetTimespan/8;
+         if (nActualTimespan > params.nPowTargetTimespan*4)
+             nActualTimespan = params.nPowTargetTimespan*4;
+    } else {
+         if (nActualTimespan < params.nPowTargetTimespan/16)
+             nActualTimespan = params.nPowTargetTimespan/16;
+         if (nActualTimespan > params.nPowTargetTimespan*4)
+             nActualTimespan = params.nPowTargetTimespan*4;
+    }
 
     // Retarget
     arith_uint256 bnNew;
@@ -74,18 +105,100 @@ unsigned int CalculateNextWorkRequired(const CBlockIndex* pindexLast, int64_t nF
     bnOld = bnNew;
     // Litecoin: intermediate uint256 can overflow by 1 bit
     const arith_uint256 bnPowLimit = UintToArith256(params.powLimit);
+#if 0
     bool fShift = bnNew.bits() > bnPowLimit.bits() - 1;
     if (fShift)
         bnNew >>= 1;
+#endif
     bnNew *= nActualTimespan;
     bnNew /= params.nPowTargetTimespan;
+#if 0
     if (fShift)
         bnNew <<= 1;
+#endif
 
     if (bnNew > bnPowLimit)
         bnNew = bnPowLimit;
 
     return bnNew.GetCompact();
+}
+
+#include "bignum.h"
+
+unsigned int static KimotoGravityWell(const CBlockIndex* pindexLast, uint64_t TargetBlocksSpacingSeconds, uint64_t PastBlocksMin, uint64_t PastBlocksMax, const Consensus::Params& params) {
+    /* current difficulty formula, SlothCoin - kimoto gravity well */
+    const CBlockIndex *BlockLastSolved = pindexLast;
+    const CBlockIndex *BlockReading = pindexLast;
+    uint64_t PastBlocksMass = 0;
+    int64_t PastRateActualSeconds = 0;
+    int64_t PastRateTargetSeconds = 0;
+    double PastRateAdjustmentRatio = double(1);
+    //typedef arith_uint256 CBigNum; // ???
+    CBigNum bnProofOfWorkLimit(params.powLimit);
+    CBigNum PastDifficultyAverage;
+    CBigNum PastDifficultyAveragePrev;
+    double EventHorizonDeviation;
+    double EventHorizonDeviationFast;
+    double EventHorizonDeviationSlow;
+
+    if (BlockLastSolved == NULL || BlockLastSolved->nHeight == 0 || (uint64_t)BlockLastSolved->nHeight < PastBlocksMin) { return bnProofOfWorkLimit.GetCompact(); }
+
+    int64_t LatestBlockTime = BlockLastSolved->GetBlockTime();
+    for (unsigned int i = 1; BlockReading && BlockReading->nHeight > 0; i++) {
+        if (PastBlocksMax > 0 && i > PastBlocksMax) { break; }
+        PastBlocksMass++;
+
+        if (i == 1) { PastDifficultyAverage.SetCompact(BlockReading->nBits); }
+        else { PastDifficultyAverage = ((CBigNum().SetCompact(BlockReading->nBits) - PastDifficultyAveragePrev) / i) + PastDifficultyAveragePrev; }
+        PastDifficultyAveragePrev = PastDifficultyAverage;
+
+        if (LatestBlockTime < BlockReading->GetBlockTime()) {
+            if (BlockReading->nHeight > 110000) // HARD Fork block number
+                LatestBlockTime = BlockReading->GetBlockTime();
+        }
+        PastRateActualSeconds = LatestBlockTime - BlockReading->GetBlockTime();
+        PastRateTargetSeconds = TargetBlocksSpacingSeconds * PastBlocksMass;
+        PastRateAdjustmentRatio = double(1);
+        if (BlockReading->nHeight > 110000) { // HARD Fork block number
+            if (PastRateActualSeconds < 1) { PastRateActualSeconds = 1; }
+        }
+        else {
+            if (PastRateActualSeconds < 0) { PastRateActualSeconds = 0; }
+        }
+        if (PastRateActualSeconds != 0 && PastRateTargetSeconds != 0) {
+            PastRateAdjustmentRatio = double(PastRateTargetSeconds) / double(PastRateActualSeconds);
+        }
+        EventHorizonDeviation = 1 + (0.7084 * pow((double(PastBlocksMass)/double(28.2)), -1.228));
+        EventHorizonDeviationFast = EventHorizonDeviation;
+        EventHorizonDeviationSlow = 1 / EventHorizonDeviation;
+
+        if (PastBlocksMass >= PastBlocksMin) {
+            if ((PastRateAdjustmentRatio <= EventHorizonDeviationSlow) || (PastRateAdjustmentRatio >= EventHorizonDeviationFast)) { assert(BlockReading); break; }
+        }
+        if (BlockReading->pprev == NULL) { assert(BlockReading); break; }
+        BlockReading = BlockReading->pprev;
+    }
+
+    CBigNum bnNew(PastDifficultyAverage);
+    if (PastRateActualSeconds != 0 && PastRateTargetSeconds != 0) {
+        bnNew *= PastRateActualSeconds;
+        bnNew /= PastRateTargetSeconds;
+    }
+    if (bnNew > bnProofOfWorkLimit) { bnNew = bnProofOfWorkLimit; }
+
+    return bnNew.GetCompact();
+}
+
+unsigned int GetNextWorkRequired_V2(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
+{
+    static const int64_t  BlocksTargetSpacing                     = 1 * 60; // 1 minute
+    unsigned int                TimeDaySeconds                          = 60 * 60 * 24;
+    int64_t                               PastSecondsMin                          = TimeDaySeconds * 0.01;
+    int64_t                               PastSecondsMax                          = TimeDaySeconds * 0.14;
+    uint64_t                              PastBlocksMin                           = PastSecondsMin / BlocksTargetSpacing;
+    uint64_t                              PastBlocksMax                           = PastSecondsMax / BlocksTargetSpacing;
+
+    return KimotoGravityWell(pindexLast, BlocksTargetSpacing, PastBlocksMin, PastBlocksMax, params);
 }
 
 bool CheckProofOfWork(uint256 hash, unsigned int nBits, const Consensus::Params& params)

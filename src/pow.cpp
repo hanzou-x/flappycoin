@@ -191,12 +191,12 @@ unsigned int static KimotoGravityWell(const CBlockIndex* pindexLast, uint64_t Ta
 
 unsigned int GetNextWorkRequired_V2(const CBlockIndex* pindexLast, const CBlockHeader *pblock, const Consensus::Params& params)
 {
-    static const int64_t  BlocksTargetSpacing                     = 1 * 60; // 1 minute
-    unsigned int                TimeDaySeconds                          = 60 * 60 * 24;
-    int64_t                               PastSecondsMin                          = TimeDaySeconds * 0.01;
-    int64_t                               PastSecondsMax                          = TimeDaySeconds * 0.14;
-    uint64_t                              PastBlocksMin                           = PastSecondsMin / BlocksTargetSpacing;
-    uint64_t                              PastBlocksMax                           = PastSecondsMax / BlocksTargetSpacing;
+    static const int64_t BlocksTargetSpacing = 1 * 60; // 1 minute
+    unsigned int TimeDaySeconds = 60 * 60 * 24;
+    int64_t  PastSecondsMin = TimeDaySeconds * 0.01;
+    int64_t  PastSecondsMax = TimeDaySeconds * 0.14;
+    uint64_t PastBlocksMin  = PastSecondsMin / BlocksTargetSpacing;
+    uint64_t PastBlocksMax  = PastSecondsMax / BlocksTargetSpacing;
 
     return KimotoGravityWell(pindexLast, BlocksTargetSpacing, PastBlocksMin, PastBlocksMax, params);
 }

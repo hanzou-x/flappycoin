@@ -49,7 +49,7 @@ static const int MAX_URI_LENGTH = 255;
 #define SPINNER_FRAMES 36
 
 #define QAPP_ORG_NAME "Flappycoin"
-#define QAPP_ORG_DOMAIN "litecoin.org"
+#define QAPP_ORG_DOMAIN "flappycoins.wordpress.com"
 #define QAPP_APP_NAME_DEFAULT "Flappycoin-Qt"
 #define QAPP_APP_NAME_TESTNET "Flappycoin-Qt-testnet"
 

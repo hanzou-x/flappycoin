@@ -1,5 +1,18 @@
-Litecoin Core integration/staging tree
+Flappycoin Core
 =====================================
+
+This project is forked from Litecoin in an attempt to modernize Flappycoin with
+features and bugfixes added to Bitcoin and Litecoin over the past four years.
+It is intended to be fully compatible with the Flappy 5.5 chain and its
+network.
+
+Compared to wallets built from the Flappycoin 2014 codebase, a key goal is
+maintainability so that future upstream changes can be merged in without
+unnecessary difficulty. As such, expect much of the documentation to continue
+referring to Litecoin, including below.
+
+Litecoin Core integration/staging tree
+----------------
 
 [![Build Status](https://travis-ci.org/litecoin-project/litecoin.svg?branch=master)](https://travis-ci.org/litecoin-project/litecoin)
 

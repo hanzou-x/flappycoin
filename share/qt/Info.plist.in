@@ -60,7 +60,7 @@
       <key>UTTypeIdentifier</key>
       <string>org.flappycoin.paymentrequest</string>
       <key>UTTypeDescription</key>
-      <string>Litecoin payment request</string>
+      <string>Flappycoin payment request</string>
       <key>UTTypeConformsTo</key>
       <array>
         <string>public.data</string>
